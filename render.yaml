@@ -1,0 +1,88 @@
+services:
+  - type: web
+    name: peer-learning-core-api
+    runtime: node
+    rootDir: backend/core-api
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: API_VERSION
+        value: v1
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: P1_SERVICE_TOKEN
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: ADMIN_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://app.example.com,https://admin.example.com
+      - key: MOCK_SERVICES_ENABLED
+        value: false
+      - key: MOCK_DEMO_MODE
+        value: false
+      - key: MOCK_PAYMENT_ADMIN_TOKEN
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: APPLE_CLIENT_ID
+        sync: false
+      - key: APPLE_TEAM_ID
+        sync: false
+      - key: APPLE_KEY_ID
+        sync: false
+      - key: APPLE_PRIVATE_KEY_PATH
+        value: ./certs/AuthKey_PLACEHOLDER.p8
+      - key: APPLE_CALLBACK_URL
+        sync: false
+
+  - type: web
+    name: peer-learning-session-engine
+    runtime: python
+    rootDir: backend/session-engine
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: P1_BASE_URL
+        sync: false
+      - key: P1_SERVICE_TOKEN
+        sync: false
+      - key: P1_TIMEOUT_SECONDS
+        value: 10
+      - key: VIDEO_PROVIDER
+        value: agora
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_APP_CERTIFICATE
+        sync: false
+      - key: VIDEO_TOKEN_TTL_SECONDS
+        value: 600
+      - key: STRICT_TIER_REVERIFY
+        value: true
+      - key: DEV_MOCK_DATA
+        value: false

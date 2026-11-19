@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mobile-video-sdk"
+version = "0.1.0"
+description = "Person 2's thin client facade consumed by Person 3's mobile app (Section 20)."
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27"]
+
+# The folder on disk is named "mobile-video-sdk" (matching the roadmap's
+# folder structure exactly), but Python identifiers can't contain hyphens,
+# so it installs as the importable package "mobile_video_sdk".
+[tool.setuptools]
+package-dir = { "mobile_video_sdk" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]
