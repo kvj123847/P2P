@@ -4,6 +4,7 @@
  */
 
 import express, { Application, Request, Response, NextFunction } from 'express';
+import path from 'node:path';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -133,15 +134,6 @@ const livenessHandler = (_req: Request, res: Response) => {
   });
 };
 
-app.get('/', (_req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    service: 'peer-learning-core-api',
-    status: 'running',
-    health: '/health',
-    readiness: '/readyz',
-  });
-});
 app.get('/health', healthHandler);
 app.get('/livez', livenessHandler);
 app.get('/readyz', readinessHandler);
@@ -162,6 +154,20 @@ app.use(`${apiPrefix}/sessions`, sessionsRoutes);
 app.use(`${apiPrefix}/courses`, coursesRoutes);
 app.use(`${apiPrefix}/notifications`, notificationsRoutes);
 app.use(`${apiPrefix}`, chatRoutes);
+
+// Serve the bundled Flutter web application from the same origin.
+const publicDir = path.resolve(__dirname, '..', 'public');
+app.use(express.static(publicDir));
+app.get('*', (req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/livez' || req.path === '/readyz') {
+    next();
+    return;
+  }
+  const indexPath = path.join(publicDir, 'index.html');
+  res.sendFile(indexPath, (error) => {
+    if (error) next(error);
+  });
+});
 
 // ── 5. Error Handling ────────────────────────────────────────────────────────
 app.use(notFoundHandler);

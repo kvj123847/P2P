@@ -74,6 +74,9 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 
+# Copy the bundled Flutter web application
+COPY public ./public
+
 # Ensure logs directory exists and is writable by expressjs user
 RUN mkdir -p logs && chown expressjs:nodejs logs
 
