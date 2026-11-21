@@ -5,9 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
-    "build": "tsc --project tsconfig.json",
-    "start": "node -e \"require('tsconfig-paths').register({baseUrl:'./dist',paths:{'@/*':['*']}}); require('./dist/server.js')\"",
+    "build": "tsc --project tsconfig.json && node scripts/rewrite-path-aliases.cjs",
+    "start": "node dist/server.js",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "db:studio": "prisma studio",

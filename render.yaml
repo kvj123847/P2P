@@ -1,10 +1,9 @@
 services:
   - type: web
     name: peer-learning-core-api
-    runtime: node
-    rootDir: backend/core-api
-    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    startCommand: npm start
+    runtime: docker
+    dockerfilePath: ./backend/core-api/Dockerfile
+    dockerContext: ./backend/core-api
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -21,6 +20,10 @@ services:
         sync: false
       - key: JWT_REFRESH_SECRET
         sync: false
+      - key: JWT_ACCESS_EXPIRY
+        value: 15m
+      - key: JWT_REFRESH_EXPIRY
+        value: 7d
       - key: P1_SERVICE_TOKEN
         sync: false
       - key: CLIENT_URL

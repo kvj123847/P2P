@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -19,19 +21,37 @@ class ApiConfig {
       defaultValue: 'http://10.0.2.2:8001',
     ),
   );
-
-  static const production = ApiConfig(
-    coreApiBaseUrl: String.fromEnvironment(
-      'CORE_API_BASE_URL',
-      defaultValue: 'https://api.example.com/api/v1',
-    ),
-    sessionEngineBaseUrl: String.fromEnvironment(
-      'SESSION_ENGINE_BASE_URL',
-      defaultValue: 'https://session.example.com',
-    ),
-  );
-
   static const agoraAppId = String.fromEnvironment('AGORA_APP_ID');
+
+  static ApiConfig get current {
+    const isProduction = bool.fromEnvironment('PRODUCTION', defaultValue: false);
+    if (!isProduction) return development;
+
+    const coreUrl = String.fromEnvironment('CORE_API_BASE_URL');
+    const sessionUrl = String.fromEnvironment('SESSION_ENGINE_BASE_URL');
+    if (coreUrl.isEmpty || sessionUrl.isEmpty) {
+      throw StateError(
+        'Production builds require CORE_API_BASE_URL and '
+        'SESSION_ENGINE_BASE_URL via --dart-define.',
+      );
+    }
+    final coreUri = Uri.tryParse(coreUrl);
+    final sessionUri = Uri.tryParse(sessionUrl);
+    if (coreUri == null ||
+        !coreUri.isAbsolute ||
+        coreUri.scheme != 'https' ||
+        sessionUri == null ||
+        !sessionUri.isAbsolute ||
+        sessionUri.scheme != 'https') {
+      throw const FormatException(
+        'Production API URLs must be absolute HTTPS URLs.',
+      );
+    }
+    return ApiConfig(
+      coreApiBaseUrl: coreUrl,
+      sessionEngineBaseUrl: sessionUrl,
+    );
+  }
 
   final String coreApiBaseUrl;
   final String sessionEngineBaseUrl;
@@ -49,10 +69,10 @@ class ApiException implements Exception {
 
 class ApiClient {
   ApiClient({
-    ApiConfig config = ApiConfig.development,
+    ApiConfig? config,
     FlutterSecureStorage? storage,
     http.Client? client,
-  })  : _config = config,
+  })  : _config = config ?? ApiConfig.current,
         _storage = storage ?? const FlutterSecureStorage(),
         _client = client ?? http.Client();
 
@@ -123,8 +143,18 @@ class ApiClient {
     final request = http.Request(method, uri)
       ..headers.addAll(headers)
       ..body = body == null ? '' : jsonEncode(body);
-    final streamed = await _client.send(request).timeout(const Duration(seconds: 15));
-    final response = await http.Response.fromStream(streamed);
+    late final http.Response response;
+    try {
+      final streamed =
+          await _client.send(request).timeout(const Duration(seconds: 15));
+      response = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const ApiException(504, 'The server request timed out');
+    } on SocketException {
+      throw const ApiException(503, 'Unable to connect to the server');
+    } on HttpException {
+      throw const ApiException(502, 'The server connection failed');
+    }
     if (response.statusCode == 401 && retry && uri.path.contains('/api/')) {
       final refreshed = await _refresh();
       if (refreshed) {

@@ -6,10 +6,11 @@
 # ─────────────────────────────────────────────────────────────
 
 # ── Stage 1: Install all dependencies ────────────────────────
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 
-# Install build tools needed for native addons (bcrypt, etc.)
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates python3 make g++ \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -24,7 +25,11 @@ RUN npm ci --frozen-lockfile
 RUN npx prisma generate
 
 # ── Stage 2: TypeScript compilation ──────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -41,19 +46,21 @@ RUN npx prisma generate
 RUN npm run build
 
 # ── Stage 3: Production runner ────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="P2P Learning Backend"
 LABEL org.opencontainers.image.description="Peer-to-Peer Student Learning App API"
 
-RUN apk add --no-cache libc6-compat dumb-init
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates dumb-init \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
- && adduser  --system --uid 1001 expressjs
+ && adduser --system --uid 1001 --gid 1001 expressjs
 
 # Copy only production node_modules (reinstall cleanly)
 COPY package.json package-lock.json* ./

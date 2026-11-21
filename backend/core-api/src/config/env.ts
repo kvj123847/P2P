@@ -44,7 +44,12 @@ const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
   HOST: z.string().default('0.0.0.0'),
-  PORT: z.string().default('3000').transform(Number),
+  PORT: z
+    .string()
+    .default('3000')
+    .refine((value) => /^\d+$/.test(value), 'PORT must contain digits only')
+    .transform(Number)
+    .refine((value) => value >= 1 && value <= 65535, 'PORT must be between 1 and 65535'),
   API_VERSION: z.string().default('v1'),
   P1_SERVICE_TOKEN: isTest
     ? testOptional('test_p1_service_token')
