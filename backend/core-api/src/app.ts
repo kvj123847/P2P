@@ -34,7 +34,26 @@ const app: Application = express();
 // ── 1. Security & Hygiene Middleware ─────────────────────────────────────────
 app.use(
   helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+    contentSecurityPolicy:
+      process.env.NODE_ENV === 'production'
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+              scriptSrcElem: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+              workerSrc: ["'self'", 'blob:'],
+              childSrc: ["'self'", 'blob:'],
+              connectSrc: ["'self'", 'https:', 'wss:', 'blob:'],
+              imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+              fontSrc: ["'self'", 'data:', 'https:'],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              objectSrc: ["'none'"],
+              baseUri: ["'self'"],
+              frameAncestors: ["'none'"],
+              upgradeInsecureRequests: [],
+            },
+          }
+        : false,
     crossOriginEmbedderPolicy: false,
   }),
 );
