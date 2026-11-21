@@ -70,7 +70,15 @@ app.use(
   }),
 );
 
-const allowedOrigins = [...new Set([...env.ALLOWED_ORIGINS, env.CLIENT_URL, env.ADMIN_URL])].filter(Boolean);
+const allowedOrigins = [
+  ...new Set([
+    ...env.ALLOWED_ORIGINS,
+    env.CLIENT_URL,
+    env.ADMIN_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    'https://p2p-gz4q.onrender.com',
+  ]),
+].filter((origin): origin is string => Boolean(origin));
 
 app.use(
   cors({
