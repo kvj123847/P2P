@@ -133,6 +133,15 @@ const livenessHandler = (_req: Request, res: Response) => {
   });
 };
 
+app.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    service: 'peer-learning-core-api',
+    status: 'running',
+    health: '/health',
+    readiness: '/readyz',
+  });
+});
 app.get('/health', healthHandler);
 app.get('/livez', livenessHandler);
 app.get('/readyz', readinessHandler);
