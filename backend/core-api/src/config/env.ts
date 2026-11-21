@@ -84,32 +84,24 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
   // ── Google OAuth 2.0 ─────────────────────────────────────────────────────
-  GOOGLE_CLIENT_ID: isTest
-    ? testOptional('test_google_client_id')
-    : z.string().min(1, { message: 'GOOGLE_CLIENT_ID is required' }),
-  GOOGLE_CLIENT_SECRET: isTest
-    ? testOptional('test_google_client_secret')
-    : z.string().min(1, { message: 'GOOGLE_CLIENT_SECRET is required' }),
-  GOOGLE_CALLBACK_URL: isTest
-    ? testOptional('http://localhost:3000/api/v1/auth/google/callback')
-    : z.string().url({ message: 'GOOGLE_CALLBACK_URL must be a valid URL' }),
+  GOOGLE_AUTH_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => value.toLowerCase() === 'true'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().optional(),
 
   // ── Apple Sign In ────────────────────────────────────────────────────────
-  APPLE_CLIENT_ID: isTest
-    ? testOptional('com.test.app')
-    : z.string().min(1, { message: 'APPLE_CLIENT_ID is required' }),
-  APPLE_TEAM_ID: isTest
-    ? testOptional('TESTTEAMID')
-    : z.string().min(1, { message: 'APPLE_TEAM_ID is required' }),
-  APPLE_KEY_ID: isTest
-    ? testOptional('TESTKEYID1')
-    : z.string().min(1, { message: 'APPLE_KEY_ID is required' }),
-  APPLE_PRIVATE_KEY_PATH: isTest
-    ? testOptional('./secrets/apple_auth_key.p8')
-    : z.string().min(1, { message: 'APPLE_PRIVATE_KEY_PATH is required' }),
-  APPLE_CALLBACK_URL: isTest
-    ? testOptional('https://localhost:3000/api/v1/auth/apple/callback')
-    : z.string().url({ message: 'APPLE_CALLBACK_URL must be a valid URL' }),
+  APPLE_AUTH_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => value.toLowerCase() === 'true'),
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_TEAM_ID: z.string().optional(),
+  APPLE_KEY_ID: z.string().optional(),
+  APPLE_PRIVATE_KEY_PATH: z.string().optional(),
+  APPLE_CALLBACK_URL: z.string().optional(),
 
   // ── Explicitly gated demo services ──────────────────────────────────────
   MOCK_SERVICES_ENABLED: z
@@ -125,12 +117,12 @@ const envSchema = z.object({
     : z.string().min(32, { message: 'MOCK_PAYMENT_ADMIN_TOKEN must be at least 32 characters' }),
 
   // ── SendGrid ─────────────────────────────────────────────────────────────
-  SENDGRID_API_KEY: isTest
-    ? testOptional('SG.test_placeholder_api_key')
-    : z.string().startsWith('SG.', { message: 'SENDGRID_API_KEY must start with SG.' }),
-  SENDGRID_FROM_EMAIL: isTest
-    ? testOptional('noreply@test.com')
-    : z.string().email({ message: 'SENDGRID_FROM_EMAIL must be a valid email' }),
+  EMAIL_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => value.toLowerCase() === 'true'),
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().optional(),
 
   // ── App URLs ─────────────────────────────────────────────────────────────
   CLIENT_URL: isTest
@@ -159,7 +151,35 @@ const envSchema = z.object({
  */
 function parseEnv() {
   try {
-    return envSchema.parse(process.env);
+    const parsed = envSchema.parse(process.env);
+    const issues: string[] = [];
+
+    if (parsed.GOOGLE_AUTH_ENABLED) {
+      if (!parsed.GOOGLE_CLIENT_ID) issues.push('GOOGLE_CLIENT_ID is required when GOOGLE_AUTH_ENABLED=true');
+      if (!parsed.GOOGLE_CLIENT_SECRET) issues.push('GOOGLE_CLIENT_SECRET is required when GOOGLE_AUTH_ENABLED=true');
+      if (!parsed.GOOGLE_CALLBACK_URL) issues.push('GOOGLE_CALLBACK_URL is required when GOOGLE_AUTH_ENABLED=true');
+      else if (!/^https?:\/\//.test(parsed.GOOGLE_CALLBACK_URL)) issues.push('GOOGLE_CALLBACK_URL must be a valid URL');
+    }
+
+    if (parsed.APPLE_AUTH_ENABLED) {
+      if (!parsed.APPLE_CLIENT_ID) issues.push('APPLE_CLIENT_ID is required when APPLE_AUTH_ENABLED=true');
+      if (!parsed.APPLE_TEAM_ID) issues.push('APPLE_TEAM_ID is required when APPLE_AUTH_ENABLED=true');
+      if (!parsed.APPLE_KEY_ID) issues.push('APPLE_KEY_ID is required when APPLE_AUTH_ENABLED=true');
+      if (!parsed.APPLE_PRIVATE_KEY_PATH) issues.push('APPLE_PRIVATE_KEY_PATH is required when APPLE_AUTH_ENABLED=true');
+      if (!parsed.APPLE_CALLBACK_URL) issues.push('APPLE_CALLBACK_URL is required when APPLE_AUTH_ENABLED=true');
+      else if (!/^https?:\/\//.test(parsed.APPLE_CALLBACK_URL)) issues.push('APPLE_CALLBACK_URL must be a valid URL');
+    }
+
+    if (parsed.EMAIL_ENABLED) {
+      if (!parsed.SENDGRID_API_KEY?.startsWith('SG.')) issues.push('SENDGRID_API_KEY must start with SG. when EMAIL_ENABLED=true');
+      if (!parsed.SENDGRID_FROM_EMAIL) issues.push('SENDGRID_FROM_EMAIL is required when EMAIL_ENABLED=true');
+    }
+
+    if (issues.length) {
+      console.error(`\n❌  Environment validation failed:\n${issues.map((issue) => `  • ${issue}`).join('\n')}\n`);
+      process.exit(1);
+    }
+    return parsed;
   } catch (err) {
     if (err instanceof ZodError) {
       const issues = err.errors

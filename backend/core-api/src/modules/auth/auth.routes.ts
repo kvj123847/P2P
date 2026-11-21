@@ -17,6 +17,7 @@ import {
 } from './auth.schema';
 import { authLimiter, sensitiveLimiter } from '@/middleware/rateLimiter';
 import { requireAuth } from '@/middleware/auth';
+import { env } from '@/config/env';
 
 const router = Router();
 const controller = new AuthController();
@@ -28,8 +29,26 @@ router.post('/logout', requireAuth, controller.logout.bind(controller));
 router.post('/refresh', validate(refreshTokenSchema), controller.refresh.bind(controller));
 
 // OAuth
-router.post('/google', authLimiter, validate(googleOAuthSchema), controller.googleOAuth.bind(controller));
-router.post('/apple', authLimiter, validate(appleOAuthSchema), controller.appleOAuth.bind(controller));
+router.post('/google', authLimiter, (req, res, next) => {
+  if (!env.GOOGLE_AUTH_ENABLED) {
+    res.status(503).json({
+      success: false,
+      error: { statusCode: 503, message: 'Google authentication is not configured' },
+    });
+    return;
+  }
+  next();
+}, validate(googleOAuthSchema), controller.googleOAuth.bind(controller));
+router.post('/apple', authLimiter, (req, res, next) => {
+  if (!env.APPLE_AUTH_ENABLED) {
+    res.status(503).json({
+      success: false,
+      error: { statusCode: 503, message: 'Apple authentication is not configured' },
+    });
+    return;
+  }
+  next();
+}, validate(appleOAuthSchema), controller.appleOAuth.bind(controller));
 
 // Password Reset & Verification
 router.post('/forgot-password', sensitiveLimiter, validate(forgotPasswordSchema), controller.forgotPassword.bind(controller));

@@ -9,8 +9,17 @@ import sgMail, { MailDataRequired } from '@sendgrid/mail';
 import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
 
-// Initialise SendGrid with the API key once at module load time
-sgMail.setApiKey(env.SENDGRID_API_KEY);
+export class EmailDisabledError extends Error {
+  constructor() {
+    super('Transactional email is disabled');
+    this.name = 'EmailDisabledError';
+  }
+}
+
+// Initialise SendGrid only when explicitly enabled and a real key is configured.
+if (env.EMAIL_ENABLED && env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(env.SENDGRID_API_KEY);
+}
 
 // ---------------------------------------------------------------------------
 // Shared branding / constants
@@ -26,6 +35,9 @@ const BASE_URL = env.CLIENT_URL ?? 'https://app.p2plearn.app';
  * Errors are logged but re-thrown so callers can decide how to handle them.
  */
 async function sendEmail(msg: MailDataRequired): Promise<void> {
+  if (!env.EMAIL_ENABLED || !env.SENDGRID_API_KEY || !env.SENDGRID_FROM_EMAIL) {
+    throw new EmailDisabledError();
+  }
   try {
     await sgMail.send(msg);
     logger.info('Email sent', { to: msg.to, subject: msg.subject });

@@ -190,10 +190,12 @@ export class AuthController {
    */
   async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await authService.forgotPassword(req.body.email, req);
+      const result = await authService.forgotPassword(req.body.email, req);
       res.status(200).json({
         success: true,
-        message: 'If an account exists with that email, a password reset link has been dispatched.',
+        message: result.emailEnabled
+          ? 'If an account exists with that email, a password reset link has been dispatched.'
+          : 'Password reset email delivery is currently unavailable.',
       });
     } catch (err) {
       next(err);

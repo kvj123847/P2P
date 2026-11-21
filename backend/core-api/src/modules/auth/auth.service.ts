@@ -11,8 +11,9 @@ import { hashPassword, comparePassword, generateSecureToken } from '@/utils/cryp
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '@/utils/jwt';
 import { auditLog } from '@/utils/audit';
 import { ApiError } from '@/middleware/errorHandler';
-import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from '@/utils/email';
+import { sendVerificationEmail, sendPasswordResetEmail } from '@/utils/email';
 import { OAuth2Client } from 'google-auth-library';
+import appleSignin from 'apple-signin-auth';
 import { env } from '@/config/env';
 import {
   AgeTier,
@@ -22,7 +23,10 @@ import {
   Prisma,
 } from '@prisma/client';
 
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+const googleClient =
+  env.GOOGLE_AUTH_ENABLED && env.GOOGLE_CLIENT_ID
+    ? new OAuth2Client(env.GOOGLE_CLIENT_ID)
+    : null;
 
 export interface AuthTokens {
   accessToken: string;
@@ -64,7 +68,7 @@ export class AuthService {
     }
 
     const hashedPassword = await hashPassword(data.password);
-    const emailToken = generateSecureToken(32);
+    const emailToken = env.EMAIL_ENABLED ? generateSecureToken(32) : null;
 
     // Atomically create user and roles in a Prisma transaction
     const newUser = await prisma.$transaction(async (tx) => {
@@ -119,8 +123,9 @@ export class AuthService {
     });
 
     // Send verification and welcome emails asynchronously (non-blocking)
-    sendVerificationEmail(newUser.email, emailToken).catch(() => {});
-    sendWelcomeEmail(newUser.email, data.firstName).catch(() => {});
+    if (env.EMAIL_ENABLED && emailToken) {
+      sendVerificationEmail(newUser.email, emailToken).catch(() => {});
+    }
 
     // Create session tokens
     const { token: rawRefreshToken, jti } = generateRefreshToken(newUser.id);
@@ -273,6 +278,9 @@ export class AuthService {
     role: 'LEARNER' | 'TUTOR' | 'BOTH',
     req?: Request,
   ): Promise<AuthTokens> {
+    if (!env.GOOGLE_AUTH_ENABLED || !googleClient) {
+      throw ApiError.serviceUnavailable('Google authentication is not configured');
+    }
     let email: string;
     let googleSub: string;
 
@@ -406,10 +414,22 @@ export class AuthService {
     role: 'LEARNER' | 'TUTOR' | 'BOTH',
     req?: Request,
   ): Promise<AuthTokens> {
-    // In production, verify Apple JWT using Apple public keys
-    // For MVP/testing, extract or use mock identity
-    const appleUserId = `apple_user_${generateSecureToken(8)}`;
-    const email = `apple_${appleUserId}@privaterelay.appleid.com`;
+    if (!env.APPLE_AUTH_ENABLED || !env.APPLE_CLIENT_ID) {
+      throw ApiError.serviceUnavailable('Apple authentication is not configured');
+    }
+
+    let identity: { sub: string; email?: string };
+    try {
+      identity = await appleSignin.verifyIdToken(identityToken, {
+        audience: env.APPLE_CLIENT_ID,
+      });
+    } catch (_error) {
+      throw ApiError.unauthorized('Failed to verify Apple identity token');
+    }
+
+    const appleUserId = identity.sub;
+    const email = identity.email?.toLowerCase()
+      ?? `apple_${appleUserId}@privaterelay.appleid.com`;
 
     let user = await prisma.user.findFirst({
       where: {
@@ -610,11 +630,14 @@ export class AuthService {
   /**
    * Trigger password reset flow: stores single-use token in DB with 1h expiry.
    */
-  async forgotPassword(email: string, req?: Request): Promise<void> {
+  async forgotPassword(email: string, req?: Request): Promise<{ emailEnabled: boolean }> {
+    if (!env.EMAIL_ENABLED) {
+      return { emailEnabled: false };
+    }
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       // Anti-enumeration: return quietly
-      return;
+      return { emailEnabled: true };
     }
 
     const resetToken = generateSecureToken(32);
@@ -638,6 +661,7 @@ export class AuthService {
       success: true,
       req,
     });
+    return { emailEnabled: true };
   }
 
   /**

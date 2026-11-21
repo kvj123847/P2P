@@ -53,6 +53,11 @@ export class ApiError extends Error {
     return new ApiError(429, message);
   }
 
+  /** 503 Service Unavailable */
+  static serviceUnavailable(message = 'Service unavailable'): ApiError {
+    return new ApiError(503, message);
+  }
+
   /** 500 Internal Server Error */
   static internal(message = 'Internal server error'): ApiError {
     return new ApiError(500, message, false);
