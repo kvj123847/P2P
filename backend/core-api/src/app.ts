@@ -39,8 +39,20 @@ app.use(
         ? {
             directives: {
               defaultSrc: ["'self'"],
-              scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
-              scriptSrcElem: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+              scriptSrc: [
+                "'self'",
+                "'unsafe-eval'",
+                "'wasm-unsafe-eval'",
+                'https://www.gstatic.com',
+                'https://fonts.gstatic.com',
+              ],
+              scriptSrcElem: [
+                "'self'",
+                "'unsafe-eval'",
+                "'wasm-unsafe-eval'",
+                'https://www.gstatic.com',
+                'https://fonts.gstatic.com',
+              ],
               workerSrc: ["'self'", 'blob:'],
               childSrc: ["'self'", 'blob:'],
               connectSrc: ["'self'", 'https:', 'wss:', 'blob:'],
